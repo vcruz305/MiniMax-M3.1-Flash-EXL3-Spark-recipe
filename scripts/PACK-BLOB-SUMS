@@ -1,0 +1,31 @@
+# git blob sha1 of every non-LFS file of the pack at the measured
+# revision e2682d076e220e71e2a7ea7b9885e70390c27698 (Hub tree API oid).
+# The Hub history was later replaced by a commit that only removed a stray
+# temp file; the pinned head 99bf3a57af5d07245ea9abb5426e7dce6af6356b
+# carries byte-identical files, so these hashes are unchanged and remain
+# the byte authority. download_and_verify.sh recomputes each blob hash
+# (sha1("blob <size>\0" + content)) and compares it here.
+
+a97b874c2413fc64067b216c8985da82c16976c6  .gitattributes
+48c81da8544e978f08692c3e29b5c4dbc8663de5  LICENSE
+e3fa3a1ceab1c2136952dece2132db08aea2c290  README.md
+75d7b67d61bc820ca42f35bb22d7be646fdaf30d  README_zh.md
+43c846ca31dbefd9250f2681d0013f3304c20b55  added_tokens.json
+e51457eedc3910cb9a16d4dde8f2c4a70c5def3a  chat_template.jinja
+7d65ad90bb5504521cadf894b8ae45add06ef7d2  config.json
+0534f70354808a0f93f70546a919770fcca57b56  configuration_minimax_m3_vl.py
+f28748d29f4d13b9cbfed3270f1c303e8b0d1239  docs/FlagOS-Multi-Chip-Support-and-Downloads.md
+4e3a8a445671c2fdba41c07a76ffbd2827b71a16  dspark/config.json
+cf14d3b59508d2946ae9a6b667784968d9ecef70  dspark/model.safetensors.index.json
+972b41cdb04e1ab4c2b94fa0c35df0c80a5151a2  figures/logo.svg
+54806f9d4ea503f2d1afa468de37764acbbaa97d  generation_config.json
+aa896bba971dfc6e79c8b4d51730e0c6ea7953dc  image_processor.py
+ff574e20e38bcb4a57a4cbdb6e2df9f533339435  merges.txt
+ed2e7a259b7bfaebe1eb61d11c3a5a7e9229defb  model.safetensors.index.json
+300d985e6a4908d0c53bc263793c01605127e96f  preprocessor_config.json
+c08cc624a63dfeced8d31686daeed89bf9ede2cc  processing_minimax.py
+c55c5c84d7e4bbb2f02cc746ae1b3730cb5ae5d2  special_tokens_map.json
+9065e14e5a73c490eb304429d903d3d08b977ab4  tokenizer.json
+44840ad83c3832759b922a5695ed968a5e0ee2ec  tokenizer_config.json
+d09de12560d60a64047e025c7f8397bf5609197c  video_processor.py
+379894132c073256d7f45c67672de5c5a0d7e4c2  vocab.json

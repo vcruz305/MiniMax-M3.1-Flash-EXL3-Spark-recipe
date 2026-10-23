@@ -1,0 +1,26 @@
+# sha256 of every LFS file of vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw
+# at the measured revision e2682d076e220e71e2a7ea7b9885e70390c27698
+# (the Hub tree API lfs.oid values). The Hub history was later replaced by a
+# commit that only removed a stray temp file; the pinned head
+# 99bf3a57af5d07245ea9abb5426e7dce6af6356b carries byte-identical files,
+# so these hashes are unchanged and remain the byte authority. Verify with:
+# sha256sum -c SHA256SUMS from the pack directory. The non-LFS files are
+# covered by PACK-BLOB-SUMS.
+
+a27aed923fa17697997b30f44da0cd098460a60fee06498175e6d0c880308b69  dspark/model-dspark-00001.safetensors
+430b5d545955d2dc4d42ba7e0129c691a0a27673456ec5e694d047758674d3f3  model-00001-of-00016.safetensors
+af015197a98566df2808566ef04f2454518103baa8659ce0ecd718dadaeea785  model-00002-of-00016.safetensors
+c7e395fb1837845360868fbd70e96b26b2f3b1d2f8f067758f7c74a9dadd3a7f  model-00003-of-00016.safetensors
+b6361aba64e72307fbc3f27bb5a4a8964aa829f1ff050677f249f740ab8f2612  model-00004-of-00016.safetensors
+a8c9dc58634556c2a60012af11380e8cb4daf0f8fdde9afbab34e42a4f950b6b  model-00005-of-00016.safetensors
+cbf8a27cd7f3962d818f9e3f358426ee7aef88ab62fc7591cc9d5d84f65f8651  model-00006-of-00016.safetensors
+9828d0ba994ec53d2a93aa43ee30cd21d3ab38448249d9e907663391d954f93f  model-00007-of-00016.safetensors
+1a02cd7da4bcad8c42fba7db9810da9aedb7f4f74bfbcfacc2c41608cc94b496  model-00008-of-00016.safetensors
+0042f92e078911a1eb36786359ca3ed40622d4076412e19e0f18990c0da7cce6  model-00009-of-00016.safetensors
+ff5bd95d49888dd17bf69ce3e621951a2e79e3e32c292ec49b8a86ee083ff730  model-00010-of-00016.safetensors
+4cf4a4201a5722970bace2fbb2f95d3947c99de508a6c0abadffd1bb92cd15af  model-00011-of-00016.safetensors
+a2251875af36b9b31a6023689c9c850cef5e47321de6fbd9f246dea399b4c065  model-00012-of-00016.safetensors
+d4994614d8a9df8627ef26d18d95ded581472769c0fbab967c11fd2203ebbc13  model-00013-of-00016.safetensors
+6bd2ba089d1d32a2ed83d4adf7049b98533c58520b4deda6c2ce7369f23a0285  model-00014-of-00016.safetensors
+b37e824d2c7d79bd741f6f38e1bcd1a2153c39ad5467a0f12453a43e9def9027  model-00015-of-00016.safetensors
+091a20b4fc0cfbb91cf4222341c465692012f344a3f2a1bc037f953bb858053d  model-00016-of-00016.safetensors
