@@ -305,6 +305,21 @@ came from.
 - **One decode stream only.** `MAX_NUM_SEQS=1` on every profile: the MSA
   indexer tops out at one running sequence and the memory budget has no
   room for more.
+- **mimalloc arena retention (`MIMALLOC_PURGE_DELAY`/`MIMALLOC_RESET_DELAY`,
+  default `0`).** torch 2.14.0+cu130 on aarch64 links mimalloc statically
+  into `libc10.so`, so the engine process holds freed load-time CPU memory
+  inside a mimalloc arena until the purge/reset delays expire (upstream
+  defaults: 10 s purge, 0 s reset). `scripts/serve.sh` passes both delays
+  into the container, `0` by default, so freed pages go back to the OS
+  immediately; an empty value passes nothing (upstream mimalloc defaults),
+  and anything else must be a non-negative integer or the launch is refused.
+  Measured on this box (exact 32K q4 profile, both `0` vs unset): PRE_KV
+  MemAvailable 4.20 vs 3.47 GiB, engine `rss_anon` at PRE_KV 2.25 vs
+  3.11 GiB, ready MemAvailable 2.06 vs ~1.17 GiB, lowest guard sample over
+  warm-up + 6.6K/30K needles + bench 1.50 vs 0.56 GiB, arena `rss` at ready
+  160 KiB vs ~879 MiB held in a 1 GiB arena. Needles PASS (6,625 tok at
+  379.3 tok/s, 29,893 tok at 369.8 tok/s) and decode is unchanged (prose
+  24.32 / code 29.23 tok/s).
 
 ## Credits
 

@@ -68,6 +68,14 @@ if [ "$DRY_RUN" = "1" ]; then
     echo "  plugin q4 overlay pool); indexer stays fp8 e4m3 and the DSpark draft stays"
     echo "  fp8/TRITON_ATTN (fail-closed in env.sh)"
   fi
+  if [ -n "$MIMALLOC_PURGE_DELAY$MIMALLOC_RESET_DELAY" ]; then
+    MIMALLOC_DESC=""
+    if [ -n "$MIMALLOC_PURGE_DELAY" ]; then MIMALLOC_DESC="-e MIMALLOC_PURGE_DELAY=$MIMALLOC_PURGE_DELAY"; fi
+    if [ -n "$MIMALLOC_RESET_DELAY" ]; then MIMALLOC_DESC="$MIMALLOC_DESC -e MIMALLOC_RESET_DELAY=$MIMALLOC_RESET_DELAY"; fi
+    echo "  mimalloc:$MIMALLOC_DESC in the container env (freed load-time CPU memory goes back to the OS immediately instead of staying resident in the engine's mimalloc arena; empty knob = upstream mimalloc defaults)"
+  else
+    echo "  mimalloc: none (both knobs empty: upstream mimalloc defaults, freed memory stays in the arena until purge)"
+  fi
   if [ "$KVB_SRC" = "formula" ]; then
     echo "  pool   : $MAXLEN tokens x $KV_POOL_PER_TOKEN_B B/token x 1.10 (headroom) = \
 $KVB_RAW B -> align up to 256 MiB -> \
@@ -252,6 +260,15 @@ INDEXER_MXFP8_ENV=()
 if [ "$INDEXER_MXFP8" = "1" ]; then
   INDEXER_MXFP8_ENV=(-e VLLM_EXL3_INDEXER_MXFP8=1)
 fi
+# mimalloc (env.sh): torch's libc10.so links mimalloc statically, so the engine
+# is a mimalloc client and holds freed load-time CPU memory inside its arena
+# for MIMALLOC_PURGE_DELAY/MIMALLOC_RESET_DELAY ms. 0 (the default) returns it
+# to the OS immediately; an EMPTY value passes nothing at all (upstream
+# defaults). env.sh has already refused anything that is not empty or a
+# non-negative integer.
+MIMALLOC_ENV=()
+[ -n "$MIMALLOC_PURGE_DELAY" ] && MIMALLOC_ENV+=(-e MIMALLOC_PURGE_DELAY="$MIMALLOC_PURGE_DELAY")
+[ -n "$MIMALLOC_RESET_DELAY" ] && MIMALLOC_ENV+=(-e MIMALLOC_RESET_DELAY="$MIMALLOC_RESET_DELAY")
 
 sudo -n docker run -d --name "$CONTAINER" \
   --gpus all \
@@ -272,6 +289,7 @@ sudo -n docker run -d --name "$CONTAINER" \
   -e MAXLEN="$MAXLEN" -e MAX_NUM_SEQS="$MAX_NUM_SEQS" -e BLOCK_SIZE="$BLOCK_SIZE" \
   -e CG_MODE="${CG_MODE:-}" -e CAPTURE_SIZES="${CAPTURE_SIZES:-}" -e COMPILE_MODE="${COMPILE_MODE:-}" \
   -e KV_CACHE_DTYPE="$KV_CACHE_DTYPE" -e INDEXER_KV_DTYPE="$INDEXER_KV_DTYPE" \
+  "${MIMALLOC_ENV[@]}" \
   "${Q4KV_ENV[@]}" \
   "${INDEXER_MXFP8_ENV[@]}" \
   -e KVB="$KVB" -e MAX_NUM_BATCHED_TOKENS="$MAX_NUM_BATCHED_TOKENS" \

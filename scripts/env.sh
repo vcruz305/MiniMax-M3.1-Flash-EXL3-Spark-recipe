@@ -246,6 +246,44 @@ COMPILE_THREADS="${COMPILE_THREADS:-1}"
 # MALLOC_ARENA_MAX: glibc arena cap inside the container (measured 2; the
 # default arena fan-out grows host anonymous memory during torch.compile).
 MALLOC_ARENA_MAX="${MALLOC_ARENA_MAX:-2}"
+# ---- mimalloc arenas (torch's libc10.so links mimalloc statically) ---------
+# torch 2.14.0+cu130 on aarch64 statically links mimalloc into libc10.so, so
+# every EngineCore process is a mimalloc client whether or not the recipe asks
+# for it. mimalloc keeps freed memory inside its arena for MIMALLOC_PURGE_DELAY
+# ms (default 10000) and MIMALLOC_RESET_DELAY ms (default 0) before handing it
+# back to the OS; with the defaults, load-time CPU memory that the engine
+# frees stays RESIDENT (and counts against GB10 MemAvailable) for the whole of
+# a very long event -- measured: ~879 MiB held in a 1 GiB arena until the end
+# of a ~30K-token prefill.
+#   0     = return freed pages to the OS immediately (the measured setting:
+#           PRE_KV MemAvailable 4.20 vs 3.47 GiB, ready 2.06 vs ~1.17 GiB,
+#           lowest guard sample 1.50 vs 0.56 GiB at the 32K q4 profile, with
+#           decode throughput unchanged and the 6.6K/30K needles PASS)
+#   empty = pass nothing: exactly the upstream mimalloc defaults (both
+#           variables unset in the container env). The default expansion below
+#           is ${VAR-0}, not ${VAR:-0}, so an explicit empty value really does
+#           mean "leave mimalloc alone" instead of collapsing back to 0.
+# Any other value must be a non-negative integer count of milliseconds.
+MIMALLOC_PURGE_DELAY="${MIMALLOC_PURGE_DELAY-0}"
+MIMALLOC_RESET_DELAY="${MIMALLOC_RESET_DELAY-0}"
+# Fail closed (serve.sh's container env must never carry a value mimalloc would
+# read as garbage): each knob is either empty or a non-negative integer.
+for _mimalloc_var in MIMALLOC_PURGE_DELAY MIMALLOC_RESET_DELAY; do
+  _mimalloc_val="${!_mimalloc_var}"
+  case "$_mimalloc_val" in
+    '') ;;
+    *[!0-9]*)
+      if [ "$GATES_ON" = 1 ]; then
+        echo "$_mimalloc_var must be a non-negative integer (ms) or empty," >&2
+        echo "got '$_mimalloc_val' (empty = leave the upstream mimalloc" >&2
+        echo "default; 0 = purge/reset immediately; see README 'Memory budget')" >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+unset _mimalloc_var _mimalloc_val
+
 # CUDA graphs / compile mode (measured set: decode runs as FULL graphs at
 # sizes 1-4 -- one sequence with num_spec=3 decodes 4 tokens per step -- and
 # the modules stay eager; the larger compile modes cut neither rss nor step
@@ -415,3 +453,4 @@ export DSPARK DSPARK_NUM_SPEC DSPARK_DRAFT_SAMPLE DSPARK_REJECTION
 export DSPARK_ATTN_BACKEND DSPARK_KV_DTYPE
 export DEFAULT_MAX_TOKENS DEFAULT_TEMPERATURE DEFAULT_TOP_P
 export GUARD_MEM_FLOOR_KIB GUARD_SWAP_MAX_MIB PROFILE
+export MIMALLOC_PURGE_DELAY MIMALLOC_RESET_DELAY
