@@ -24,11 +24,14 @@ Per-token pool costs (all three pools combined, per token):
 
 Safety margin: +2% over the raw requirement, then ceil (no 256 MiB
 alignment: that alignment is the legacy fp8 formula's policy; a measured
-budget uses an explicit minimal byte count). Anchor: the 16K fp8
+budget uses an explicit minimal byte count). Anchors: the 16K fp8
 production boot ran with KVB=1238000000 against a measured raw cost of
-1,218,864,742 B, i.e. an effective +1.57% margin. The +2% here covers
-the +0.21% per-layer rounding overhead measured on fp8 with headroom;
-the first real q4 boot must re-measure and re-pin both constants.
+1,218,864,742 B, i.e. an effective +1.57% margin; the 48K q4 production
+boot (configs/q4-48k.env) ran with KVB=2374395495 against a raw cost of
+2,327,838,720 B and the engine allocated 50,048 tokens of KV (1.02x the
+context limit), i.e. the +2% margin held. The +2% here covers the +0.21%
+per-layer rounding overhead measured on fp8 with headroom; re-measure
+before moving either constant.
 
 The legacy fp8 sizing formula (90 KiB/token x 1.10, aligned up to
 256 MiB) predates the 72.65 KiB/token measurement and is kept ONLY as
@@ -37,9 +40,10 @@ bytes never move; it is not a recommendation, and KVB=auto never uses
 it.
 
 Usage:
-  python3 scripts/kvb.py --maxlen 32768 --q4 1
-  python3 scripts/kvb.py --maxlen 32768 --q4 1 --kvb 1582930330
-  python3 scripts/kvb.py --maxlen 32768 --q4 1 --kvb-only   # env.sh hook
+  python3 scripts/kvb.py --maxlen 49152 --q4 1               # q4-48k (default)
+  python3 scripts/kvb.py --maxlen 32768 --q4 1               # q4-32k
+  python3 scripts/kvb.py --maxlen 49152 --q4 1 --kvb 2374395495
+  python3 scripts/kvb.py --maxlen 49152 --q4 1 --kvb-only    # env.sh hook
 """
 from __future__ import annotations
 

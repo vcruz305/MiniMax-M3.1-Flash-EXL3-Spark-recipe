@@ -112,9 +112,9 @@ PLUGIN_OVERLAY="${PLUGIN_OVERLAY:-}"
 
 # ---- profile --------------------------------------------------------------
 # PROFILE selects configs/<name>.env. Every profile pins exactly the flag set
-# of a measured boot (see README "Profiles"); the default is the largest
-# context that passed a needle test within the guard floor.
-PROFILE="${PROFILE:-q4-32k}"
+# of a measured boot (see README "Profiles"); the default is the recommended
+# 48K q4 profile.
+PROFILE="${PROFILE:-q4-48k}"
 PROFILE_FILE="$RECIPE_HOME/configs/$PROFILE.env"
 if [ "$GATES_ON" = "1" ] && [ ! -f "$PROFILE_FILE" ]; then
   echo "PROFILE=$PROFILE: no such profile at $PROFILE_FILE" >&2
@@ -135,7 +135,7 @@ fi
 # the arithmetic below alive in the RECIPE_ENV_NO_GATES=1 path (guard.sh,
 # whose sandbox has no configs/): it equals the default profile's value, so
 # it can never widen anything.
-MAXLEN="${MAXLEN:-32768}"
+MAXLEN="${MAXLEN:-49152}"
 CONTAINER="${CONTAINER:-m31-flash-tp1}"
 API_PORT="${API_PORT:-8000}"
 # OpenAI model id the server answers to.

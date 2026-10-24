@@ -8,7 +8,7 @@
 # env var is missing.
 set -euo pipefail
 
-MAXLEN="${MAXLEN:-32768}"
+MAXLEN="${MAXLEN:-49152}"
 MAX_NUM_SEQS="${MAX_NUM_SEQS:-1}"
 BLOCK_SIZE="${BLOCK_SIZE:-128}"
 KV_CACHE_DTYPE="${KV_CACHE_DTYPE:-fp8}"

@@ -5,7 +5,8 @@
 # prints the READY line. This recipe is STANDALONE: there is no external
 # supervisor owning readiness.
 #
-#   PROFILE=q4-32k bash scripts/serve.sh     # default profile (32K q4 KV)
+#   bash scripts/serve.sh                    # default profile (48K q4 KV)
+#   PROFILE=q4-32k bash scripts/serve.sh     # 32K q4 KV, more headroom
 #   PROFILE=fp8-16k bash scripts/serve.sh
 #   DRY_RUN=1 bash scripts/serve.sh          # print the commands, run nothing
 #   bash scripts/guard.sh stop               # container down, sysctls restored

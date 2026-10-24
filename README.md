@@ -2,7 +2,7 @@
 
 **Model on Hugging Face:** [vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw) (gated: request access on the model page)
 
-> **Work in progress.** This recipe is under active development. The `q4-32k` profile is measured and is what the author serves today; larger contexts, q4 prefill speed and the tool-calling evaluation are still being worked on, and pins/profiles may change. The two-Spark 4.26 bpw path is not validated yet — PRs welcome.
+> **Work in progress.** This recipe is under active development. The `q4-48k` profile is measured and is what the author serves today (`q4-32k` is the same flags with more memory headroom); the tool-calling evaluation is still being worked on, and pins/profiles may change. The two-Spark 4.26 bpw path is not validated yet — PRs welcome.
 
 A pinned, fail-closed serving recipe for
 [`vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw`](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw)
@@ -38,7 +38,7 @@ serve anything below either pin.
 
 | Sparks | folder | engine | profile | status |
 |---|---|---|---|---|
-| 1x DGX Spark (GB10, 128 GB unified) | this repo | vLLM (pinned upstream image) + vllm-exl3 plugin | `q4-32k` (32K context, q4 main KV) | **measured** — see [Measured results](#measured-results) |
+| 1x DGX Spark (GB10, 128 GB unified) | this repo | vLLM (pinned upstream image) + vllm-exl3 plugin | `q4-48k` (48K context, q4 main KV) | **measured** — see [Measured results](#measured-results) |
 | 2x DGX Spark | — | — | SAGE 4.26 bpw pack ([vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-4.26bpw](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-4.26bpw)) | **not validated yet — help wanted** |
 
 ## Quick start
@@ -84,11 +84,13 @@ passwordless `sudo docker`, ~120 GB free disk for the pack).
    bash scripts/build_image.sh
    ```
 
-5. **Serve.** The default profile is `q4-32k` (32K context, q4 main KV);
-   `PROFILE=` selects any `configs/<name>.env`:
+5. **Serve.** The default profile is `q4-48k` (48K context, q4 main KV, the
+   configuration the author serves); `PROFILE=` selects any
+   `configs/<name>.env`:
 
    ```bash
-   bash scripts/serve.sh                      # PROFILE=q4-32k by default
+   bash scripts/serve.sh                      # PROFILE=q4-48k by default
+   PROFILE=q4-32k bash scripts/serve.sh       # 32K q4, ~0.8 GiB more headroom
    PROFILE=fp8-16k bash scripts/serve.sh      # 16K, fp8 KV everywhere
    ```
 
@@ -126,27 +128,54 @@ the measurement (see [Known limits](#known-limits)).
 
 | profile | context | main KV | indexer KV | draft KV | guard floor | measured |
 |---|---|---|---|---|---|---|
-| `q4-32k` (default) | 32,768 | q4 (nvfp4 layout) | fp8 | fp8 | 0.2 GiB (explicit opt-in) | yes |
+| `q4-48k` (default, recommended) | 49,152 | q4 (nvfp4 layout) | fp8 | fp8 | 0.2 GiB (explicit opt-in) | yes |
+| `q4-32k` | 32,768 | q4 (nvfp4 layout) | fp8 | fp8 | 0.2 GiB (explicit opt-in) | yes |
 | `fp8-24k` | 24,576 | fp8 | fp8 | fp8 | 0.2 GiB (explicit opt-in) | yes |
 | `fp8-16k` | 16,384 | fp8 | fp8 | fp8 | 0.5 GiB (public default) | yes |
 
-48K q4 was tried and does **not** fit yet: the pool itself allocates (50,048
-tokens of KV), but the first request after boot pushed host MemAvailable to
-0 and the guard killed the container (receipt `boot22`: warm-up, smoke,
-long-context and bench all failed). 48K is not a profile and is not
-closeable by any knob in this repo.
+`q4-48k` is the profile the author serves: 48K context with the q4 main-KV
+pool (KVB `2374395495` B, which the engine turns into 50,048 tokens of KV,
+1.02x the context limit), needles PASS out to 44,755 prompt tokens, and
+prefill within 3% of the fp8 profiles. It needs the mimalloc purge/reset
+delays this repo passes at `0` — without them the first request after boot
+was guard-killed at 48K (ready MemAvailable 0.32 GiB). `q4-32k` is the same
+flag set at 32K and is the **more-headroom** choice: it reaches the READY
+line with ~0.8 GiB more free memory and its lowest guard sample is roughly
+double 48K's (table below), so pick it if the box also runs anything else.
+`fp8-24k` and `fp8-16k` keep fp8 main KV (flat ~377-384 tok/s prefill, no
+q4 fast-prefill path) and fit in less of the 2.15 bpw pack's budget.
 
 ## Measured results
 
-All numbers below are from Victor's runs of this exact recipe (image
-`m31-flash-exl3-spark:dev-fdd7736-a5e91ed` built by this Dockerfile, with
-the plugin overlaid at the pinned rev) on his DGX Spark on 2026-10-23.
-Provenance for every table is given per row. The receipts themselves are not
-in this repo; each label names the tool/log the number came from.
+All numbers below are from Victor's runs of this exact recipe on his DGX
+Spark on 2026-10-23. Provenance for every table is given per row. The
+receipts themselves are not in this repo; each label names the tool/log the
+number came from.
 
-### Boot and memory
+### Current pin (plugin `41fdb7d`, mimalloc delays `0`)
 
-| metric | fp8-16k | fp8-24k | q4-32k (default) | source |
+The production configuration as of 2026-10-23 20:07 PDT: image
+`m31-flash-exl3-spark:dev-fdd7736-41fdb7d` (the q4 fast-prefill staging is
+on by default in this plugin rev) with `MIMALLOC_PURGE_DELAY=0` and
+`MIMALLOC_RESET_DELAY=0`, as `scripts/serve.sh` passes them.
+
+| metric | q4-32k | q4-48k (default) | source |
+|---|---|---|---|
+| KV tokens allocated (1.02x limit) | 33,408 | 50,048 | `container.log` (engine KV-cache line) |
+| MemAvailable at ready (GiB) | 2.06 | 1.28 | `mem-ready` / run `result` |
+| MemAvailable after warm-up (GiB) | — | 0.88 | `warmup.out` |
+| MemAvailable minimum under load (GiB) | 1.50 | 0.73-0.78 | `guard.log` (0.05 s samples, two boots) |
+| guard floor the run used (MiB) | 204 | 204 | `serve.out` |
+
+The 48K warm-up drops MemAvailable 1.281 -> 1.037 -> 0.877 GiB across its two
+requests (`warmup.out`). Without the two mimalloc delays, 48K was
+guard-killed on the first request after boot (ready MemAvailable 0.32 GiB
+instead of 1.28); with them, ready memory rose from ~1.17 to 2.06 GiB at 32K
+and needles + bench ran clean. The smoke test passes on 48K.
+
+### Boot and memory (earlier image, plugin `688220e`, no mimalloc knobs)
+
+| metric | fp8-16k | fp8-24k | q4-32k | source |
 |---|---|---|---|---|
 | time to `/v1/models` (s) | 171 | 174 | 174 | run `result` (`boot_secs`) |
 | KV tokens allocated (1.02x limit) | 16,640 | 24,960 | 33,408 | `container.log` (engine KV-cache line) |
@@ -164,7 +193,25 @@ on the same 16K fp8 boot: identical needle results and prefill speed
 (steady 1.03-1.12 GiB with the knob vs 0.57-0.67 GiB without) — `longctx.log`
 of both runs.
 
-### Long-context needles (all PASS, answer in `content`)
+### Long-context needles, current pin (all PASS, answer in `content`)
+
+Prefill and TTFT per tested length (`scripts/longctx.py`, `longctx.log`) on
+plugin `41fdb7d` + mimalloc delays `0` — the q4 fast-prefill staging brings
+q4 prefill level with fp8:
+
+| profile | prompt tokens | prefill (tok/s) | TTFT (s) |
+|---|---|---|---|
+| q4-48k | 6,625 | 379.4 | 17.5 |
+| q4-48k | 29,893 | 369.1 | 81.0 |
+| q4-48k | 44,755 | 327.6 | 136.6 |
+| q4-32k | 6,625 | 379.3 | — |
+| q4-32k | 29,893 | 369.8 | — |
+
+Decode on the same 48K boot (`bench/bench.py`, medians over 3 prompts per
+class, 512 tokens each): prose 24.37 / code 28.97 / structured 29.72 tok/s;
+32K q4 on the same pin: prose 24.32 / code 29.23 tok/s.
+
+### Long-context needles (earlier image, plugin `688220e`; all PASS)
 
 Prefill and TTFT per tested length (`scripts/longctx.py`, `longctx.log`):
 
@@ -179,7 +226,7 @@ Prefill and TTFT per tested length (`scripts/longctx.py`, `longctx.log`):
 | q4-32k | 12,071 | 324.3 | 37.217 | 20.01 |
 | q4-32k | 24,798 | 276.2 | 89.769 | 20.77 |
 
-### Decode (`bench/bench.py`, medians over 3 prompts per class, 512 tokens each)
+### Decode (`bench/bench.py`, medians over 3 prompts per class, 512 tokens each; earlier image)
 
 | profile | class | tok/s (median) | ms/step (mean) | acceptance (median) |
 |---|---|---|---|---|
@@ -283,12 +330,15 @@ came from.
   draft only, and the serve passes `--language-model-only`. Vision requests
   are not served by this recipe.
 - **262K does not fit on one Spark.** The model's full context window is
-  262K; the largest context that boots and passes needles here is 32K
-  (default profile). 48K was tried and does not fit yet (see
-  [Profiles](#profiles)).
-- **q4 prefill is slower and degrades with length.** The q4 main-KV pool
-  buys the 32K context, at a prefill cost that falls from 338 to 276 tok/s
-  as the prompt grows from 8K to 31K, versus ~377-384 tok/s flat on fp8
+  262K; the largest context that boots and passes needles here is 48K (the
+  default `q4-48k` profile). Beyond that the q4 pool and the load-time
+  resident weights do not leave room for the first-request transient inside
+  the 0.2 GiB guard floor.
+- **q4 prefill degrades with length, but no longer with the pool.** On the
+  current pin the q4 fast-prefill staging puts q4 prefill at 379.4 / 369.1 /
+  327.6 tok/s at 6.6K / 30K / 45K prompt tokens — level with fp8 at short
+  lengths, and the fall-off at 45K is the price of the 48K context. On the
+  earlier plugin pin it was 338 / 324 / 276 tok/s at 6.5K / 12K / 25K
   (`longctx.log`).
 - **69-scenario tool-calling eval not run.** The smoke test checks one
   well-formed tool call; the 69-scenario tool-calling evaluation has not
@@ -298,11 +348,11 @@ came from.
   ~8K prefill) is consumed by the first request and recovered by
   malloc_trim only ~30 s later. This is why the warm-up must run before the
   READY line (it absorbs the transient into a logged request), and why the
-  q4-32k and fp8-24k profiles set the 0.2 GiB guard floor opt-in
+  q4-48k, q4-32k and fp8-24k profiles set the 0.2 GiB guard floor opt-in
   (`GUARD_MEM_FLOOR_KIB=209716`, what the measured boots ran): at the
-  public default 0.5 GiB floor, q4-32k's measured ready MemAvailable
-  (1.09 GiB) minus that transient leaves ~0.2-0.5 GiB and the guard would
-  kill the serve during the warm-up. The guard exists to keep the host
+  public default 0.5 GiB floor, q4-48k's measured ready MemAvailable
+  (1.28 GiB) minus that transient leaves well under 0.5 GiB and the guard
+  would kill the serve during the warm-up. The guard exists to keep the host
   alive; the floor is not a context-length knob.
 - **One decode stream only.** `MAX_NUM_SEQS=1` on every profile: the MSA
   indexer tops out at one running sequence and the memory budget has no
@@ -315,7 +365,9 @@ came from.
   into the container, `0` by default, so freed pages go back to the OS
   immediately; an empty value passes nothing (upstream mimalloc defaults),
   and anything else must be a non-negative integer or the launch is refused.
-  Measured on this box (exact 32K q4 profile, both `0` vs unset): PRE_KV
+  This is what makes 48K servable at all: without it, 48K was guard-killed
+  on the first request after boot. Measured on this box (exact 32K q4
+  profile, both `0` vs unset): PRE_KV
   MemAvailable 4.20 vs 3.47 GiB, engine `rss_anon` at PRE_KV 2.25 vs
   3.11 GiB, ready MemAvailable 2.06 vs ~1.17 GiB, lowest guard sample over
   warm-up + 6.6K/30K needles + bench 1.50 vs 0.56 GiB, arena `rss` at ready

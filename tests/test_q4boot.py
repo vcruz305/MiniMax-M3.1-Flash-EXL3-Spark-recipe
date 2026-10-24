@@ -15,9 +15,10 @@ Layers under test:
      PATH (the argv the engine would actually receive).
 
 The DEFAULT profile's argv is PINNED byte-for-byte: the no-env DRY_RUN block
-(the default profile, configs/q4-32k.env — the measured 32K q4 boot) must
+(the default profile, configs/q4-48k.env — the measured 48K q4 boot) must
 equal the measured boot's block exactly, so the default profile can never
-drift. Run from the recipe root:
+drift. The three other profiles are pinned by their own pool/floor values.
+Run from the recipe root:
 
   python3 -m unittest
 """
@@ -81,17 +82,17 @@ def _argv_block(text):
     return out
 
 
-# The DEFAULT profile's DRY_RUN argv block at MAXLEN=32768, pinned from the
-# measured 32K q4 boot. Every byte is asserted, so the default profile can
+# The DEFAULT profile's DRY_RUN argv block at MAXLEN=49152, pinned from the
+# measured 48K q4 boot. Every byte is asserted, so the default profile can
 # never drift. @@ is the two-character line-continuation marker the print
 # carries (backslash backslash); it is substituted below so this source
 # file needs no backslash literals.
 _PINNED_Q4_TEMPLATE = """vllm serve /models/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw --served-model-name MiniMax-M3.1-Flash-2.15bpw @@
   --tensor-parallel-size 1 --language-model-only @@
   --block-size 128 --disable-hybrid-kv-cache-manager @@
-  --max-model-len 32768 --max-num-seqs 1 @@
+  --max-model-len 49152 --max-num-seqs 1 @@
   --max-num-batched-tokens 1024 @@
-  --kv-cache-memory-bytes 1582930330 @@
+  --kv-cache-memory-bytes 2374395495 @@
   --kv-cache-dtype nvfp4 @@
   --attention-config {"indexer_kv_dtype":"fp8"} @@
   --speculative-config {"method":"dspark","num_speculative_tokens":3,"attention_backend":"TRITON_ATTN","kv_cache_dtype":"fp8","draft_sample_method":"probabilistic","rejection_sample_method":"block"} @@
@@ -189,15 +190,28 @@ class KvbCLITest(unittest.TestCase):
 class ServeDryRunTest(unittest.TestCase):
     """The q4 gate end-to-end through DRY_RUN=1 scripts/serve.sh."""
 
-    def test_default_argv_is_the_measured_q4_32k_boot(self):
-        # No env: the default profile (configs/q4-32k.env) must print the
-        # measured 32K q4 boot's argv byte-for-byte.
+    def test_default_argv_is_the_measured_q4_48k_boot(self):
+        # No env: the default profile (configs/q4-48k.env) must print the
+        # measured 48K q4 boot's argv byte-for-byte.
         rc, out = _dry_run({})
         self.assertEqual(rc, 0, out)
         self.assertEqual(_argv_block(out), PINNED_Q4_ARGV)
         self.assertIn("VLLM_EXL3_Q4KV=1 in the container env", out)
-        self.assertIn("--kv-cache-memory-bytes 1582930330", out)
+        self.assertIn("--kv-cache-memory-bytes 2374395495", out)
+        self.assertIn("VLLM_EXL3_INDEXER_MXFP8=1 in the container env", out)
+        # Both mimalloc delays are passed at the measured default of 0.
+        self.assertIn("-e MIMALLOC_PURGE_DELAY=0", out)
+        self.assertIn("-e MIMALLOC_RESET_DELAY=0", out)
         # The measured guard floor opt-in is part of the profile.
+        self.assertIn("MemAvailable floor 204 MiB", out)
+
+    def test_q4_32k_profile_pins_its_own_measured_pool(self):
+        # q4-32k stays the more-headroom q4 option: the 32K measured pool.
+        rc, out = _dry_run({"PROFILE": "q4-32k"})
+        self.assertEqual(rc, 0, out)
+        self.assertIn("--max-model-len 32768", out)
+        self.assertIn("--kv-cache-dtype nvfp4", out)
+        self.assertIn("--kv-cache-memory-bytes 1582930330", out)
         self.assertIn("MemAvailable floor 204 MiB", out)
 
     def test_fp8_profiles_pin_their_own_measured_pools(self):
@@ -225,10 +239,10 @@ class ServeDryRunTest(unittest.TestCase):
         # A MAXLEN the operator passes by env cannot widen the pool: the
         # profile's pinned KVB wins, so the engine simply allocates fewer
         # tokens than the (now larger) context limit.
-        rc, out = _dry_run({"MAXLEN": "49152"})
+        rc, out = _dry_run({"MAXLEN": "65536"})
         self.assertEqual(rc, 0, out)
-        self.assertIn("--max-model-len 49152", out)
-        self.assertIn("--kv-cache-memory-bytes 1582930330", out)
+        self.assertIn("--max-model-len 65536", out)
+        self.assertIn("--kv-cache-memory-bytes 2374395495", out)
 
     def test_q4_gates_refuse_fail_closed(self):
         cases = [
@@ -275,7 +289,8 @@ class ServeDryRunTest(unittest.TestCase):
         })
         self.assertEqual(rc, 0, out)
         self.assertIn("KVB_SRC=auto-kvb-py", out)
-        self.assertIn("--kv-cache-memory-bytes 1582930330", out)
+        # kvb.py derives the 48K q4 budget for the default profile.
+        self.assertIn("--kv-cache-memory-bytes 2374395495", out)
         rc, out = _dry_run({
             "KV_Q4": "1", "KVB": "1600000000",
             "DSPARK_ATTN_BACKEND": "TRITON_ATTN",
@@ -284,6 +299,15 @@ class ServeDryRunTest(unittest.TestCase):
         self.assertEqual(rc, 0, out)
         self.assertIn("KVB_SRC=override", out)
         self.assertIn("--kv-cache-memory-bytes 1600000000", out)
+        # The 32K q4 budget is still derivable and unchanged.
+        rc, out = _dry_run({
+            "PROFILE": "q4-32k", "KVB": "auto",
+            "DSPARK_ATTN_BACKEND": "TRITON_ATTN",
+            "DSPARK_KV_DTYPE": "fp8",
+        })
+        self.assertEqual(rc, 0, out)
+        self.assertIn("KVB_SRC=auto-kvb-py", out)
+        self.assertIn("--kv-cache-memory-bytes 1582930330", out)
 
 
 class ServeInnerStubTest(unittest.TestCase):
