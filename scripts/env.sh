@@ -75,17 +75,22 @@ if git -C "$EXL3_SRC" rev-parse --git-dir >/dev/null 2>&1; then
   EXL3_REV="$(git -C "$EXL3_SRC" rev-parse HEAD)"
   EXL3_SHORT="$(git -C "$EXL3_SRC" rev-parse --short HEAD)"
 fi
-# vllm-exl3 plugin: branch feat/minimax-m3-exl3 at PLUGIN_REQUIRED_REV. That
-# tree carries, all fail-closed: the true-bit-width per-expert K arrays of the
-# unified mixed-K dispatch (upstream main builds them in half-bit units -> the
-# output is wrong for EVERY mixed-K pack served in unified mode), the
-# load-time cross-validation and the one-time dispatch-mode log line; the
-# aarch64 exllamav3 guard patcher; the indexer lightning-indexer MXFP8
-# retention; the q4 (nvfp4-layout) main-KV pool; the UMA load hygiene
+# vllm-exl3 plugin: branch feat/minimax-q4-prefill at PLUGIN_REQUIRED_REV
+# (also on plugin main as 053c634, the merge of PR #46; the pin is the
+# feature-branch sha and the Dockerfile checks it out by sha, so either
+# ref resolves to the same tree). That tree carries, all fail-closed: the
+# true-bit-width per-expert K arrays of the unified mixed-K dispatch
+# (upstream main builds them in half-bit units -> the output is wrong for
+# EVERY mixed-K pack served in unified mode), the load-time
+# cross-validation and the one-time dispatch-mode log line; the aarch64
+# exllamav3 guard patcher; the indexer lightning-indexer MXFP8 retention;
+# the q4 (nvfp4-layout) main-KV pool; the single-pass q4 prefill staging
+# (VLLM_EXL3_Q4KV_PREFILL_FAST, default on: measured 338/324/276 ->
+# 379/369/328 tok/s at 6.6K/12K/25-45K tokens); the UMA load hygiene
 # (per-layer trim, embed alias, draft vocab meta, trim-before-KV); and the
 # C++20 build fix the plugin setup needs on torch 2.14.
 PLUGIN_REPO="https://github.com/vcruz305/vllm-exl3.git"
-PLUGIN_REQUIRED_REV="688220ee76d3fa49627d904082550af9458c3cd2"
+PLUGIN_REQUIRED_REV="41fdb7d99a441d37938c2a1bd600ac963c18a3cb"
 PLUGIN_REV=""
 PLUGIN_SHORT=""
 if git -C "$PLUGIN_SRC" rev-parse --git-dir >/dev/null 2>&1; then

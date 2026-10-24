@@ -19,7 +19,7 @@ came from.
 | model pack | [`vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw`](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw) @ `99bf3a57af5d07245ea9abb5426e7dce6af6356b` (byte-verified via `scripts/SHA256SUMS` + `scripts/PACK-BLOB-SUMS`; see [Pack revision](#pack-revision)) | `scripts/env.sh` |
 | base engine image | `vllm/vllm-openai:minimax-m31-flash` @ digest `sha256:86f582dae25ea92802353727164ae4eb03b37b18baf9119b805ffaec2a7ef07c` | `scripts/env.sh` (`BASE_IMAGE_DIGEST`), `Dockerfile` |
 | exllamav3 fork | [`vcruz305/exllamav3`](https://github.com/vcruz305/exllamav3) branch `feat/moe-act3-batched` @ `fdd77361971144e8d175e09e7b50b7100739fd95` | `scripts/env.sh` (`EXL3_REQUIRED_REV`) |
-| vllm-exl3 plugin | [`vcruz305/vllm-exl3`](https://github.com/vcruz305/vllm-exl3) branch `feat/minimax-m3-exl3` @ `688220ee76d3fa49627d904082550af9458c3cd2` | `scripts/env.sh` (`PLUGIN_REQUIRED_REV`) |
+| vllm-exl3 plugin | [`vcruz305/vllm-exl3`](https://github.com/vcruz305/vllm-exl3) branch `feat/minimax-q4-prefill` @ `41fdb7d99a441d37938c2a1bd600ac963c18a3cb` (also on plugin `main` as `053c634`; the pin is a sha, so either ref resolves to the same tree) | `scripts/env.sh` (`PLUGIN_REQUIRED_REV`) |
 
 Why the two fork pins are not optional: the exllamav3 pin carries the
 act-3 (clamped SwiGLU-OAI) case in the batched MoE kernels — a tree without
@@ -28,7 +28,9 @@ without the fix, 1.0 with it). The plugin pin carries the true-bit-width
 per-expert K arrays of the unified mixed-K dispatch — upstream plugin main
 builds them in half-bit units, which is wrong for every mixed-K pack in
 unified mode — plus the indexer MXFP8 retention, the q4 main-KV pool, the
-UMA load hygiene and the C++20 build fix the plugin needs on torch 2.14.
+single-pass q4 prefill staging (`VLLM_EXL3_Q4KV_PREFILL_FAST`, on by
+default: 338/324/276 -> 379/369/328 tok/s at 6.6K/12K/25-45K prompt tokens),
+the UMA load hygiene and the C++20 build fix the plugin needs on torch 2.14.
 `scripts/build_image.sh` refuses to build and `scripts/serve.sh` refuses to
 serve anything below either pin.
 
@@ -63,7 +65,7 @@ passwordless `sudo docker`, ~120 GB free disk for the pack).
    git clone https://github.com/vcruz305/exllamav3.git ~/minimax-m31-src/exllamav3
    git -C ~/minimax-m31-src/exllamav3 checkout fdd77361971144e8d175e09e7b50b7100739fd95
    git clone https://github.com/vcruz305/vllm-exl3.git ~/minimax-m31-src/vllm-exl3
-   git -C ~/minimax-m31-src/vllm-exl3 checkout 688220ee76d3fa49627d904082550af9458c3cd2
+   git -C ~/minimax-m31-src/vllm-exl3 checkout 41fdb7d99a441d37938c2a1bd600ac963c18a3cb
    ```
 
 3. **Download and verify the pack** (~119 GB; hashes every file and refuses

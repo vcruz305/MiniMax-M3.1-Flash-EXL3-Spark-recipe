@@ -157,7 +157,7 @@ class PreflightTest(unittest.TestCase):
             rc, out = _dry_run(SERVE, {"PLUGIN_OVERLAY": bad})
         self.assertNotEqual(rc, 0, out)
         self.assertIn("INDEXER_MXFP8 gate: refusing to serve", out)
-        self.assertIn("688220e", out)
+        self.assertIn("41fdb7d", out)
         self.assertIn("indexer_mxfp8_move_to_device", out)
 
     def test_readable_tree_without_the_function_refuses(self):

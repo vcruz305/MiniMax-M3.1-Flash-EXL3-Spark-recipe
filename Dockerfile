@@ -8,10 +8,11 @@
 #          rev (EXL3_REQUIRED_REV): the act-3 clamped-SwiGLU-OAI case in the
 #          batched MoE kernels. A tree without it serves garbage from every
 #          MiniMax MoE layer; the build refuses such a checkout.
-#   +    : vcruz305/vllm-exl3 branch feat/minimax-m3-exl3 at the pinned rev
+#   +    : vcruz305/vllm-exl3 branch feat/minimax-q4-prefill at the pinned rev
 #          (PLUGIN_REQUIRED_REV): the unified mixed-K K-array fix, the
-#          indexer MXFP8 retention, the q4 main-KV pool, the UMA load
-#          hygiene and the C++20 build fix for torch 2.14.
+#          indexer MXFP8 retention, the q4 main-KV pool, the single-pass q4
+#          prefill staging, the UMA load hygiene and the C++20 build fix for
+#          torch 2.14.
 #
 # Both runtime trees are staged into the build context by
 # scripts/build_image.sh from local checkouts of the pinned revs (git
@@ -25,7 +26,7 @@ FROM vllm/vllm-openai@${BASE_IMAGE_DIGEST}
 ARG BASE_IMAGE_DIGEST
 
 ARG PLUGIN_REPO=https://github.com/vcruz305/vllm-exl3.git
-ARG PLUGIN_REV=688220ee76d3fa49627d904082550af9458c3cd2
+ARG PLUGIN_REV=41fdb7d99a441d37938c2a1bd600ac963c18a3cb
 
 # sm_121 (GB10). MAX_JOBS is capped for the GB10's unified memory: a larger
 # fan-out OOMs the host during nvcc.

@@ -5,10 +5,10 @@
 #   EXL3_SRC   branch feat/moe-act3-batched (EXL3_REQUIRED_REV): adds the
 #              act-3 case to the batched MoE kernels; without it every
 #              MiniMax MoE layer outputs garbage.
-#   PLUGIN_SRC branch feat/minimax-m3-exl3 (PLUGIN_REQUIRED_REV): the
+#   PLUGIN_SRC branch feat/minimax-q4-prefill (PLUGIN_REQUIRED_REV): the
 #              unified mixed-K K-array fix, the indexer MXFP8 retention,
-#              the q4 main-KV pool, the UMA load hygiene, the C++20 setup
-#              fix.
+#              the q4 main-KV pool, the single-pass q4 prefill staging,
+#              the UMA load hygiene, the C++20 setup fix.
 #
 #   bash scripts/build_image.sh                        # both from env.sh defaults
 #   EXL3_SRC=/path/to/fork-checkout bash scripts/build_image.sh
@@ -63,7 +63,7 @@ if [ "$FORCE" != "1" ]; then
   fi
   if ! git -C "$PLUGIN_SRC" merge-base --is-ancestor "$PLUGIN_REQUIRED_REV" "$PLUGIN_REV" 2>/dev/null; then
     echo "REFUSING to build: PLUGIN_SRC HEAD $PLUGIN_REV is not $PLUGIN_REQUIRED_REV" >&2
-    echo "(feat/minimax-m3-exl3) or a descendant: the mixed-K unified K-array" >&2
+    echo "(feat/minimax-q4-prefill) or a descendant: the mixed-K unified K-array" >&2
     echo "fix would be missing from the baked plugin. FORCE=1 overrides." >&2
     exit 1
   fi
