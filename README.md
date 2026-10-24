@@ -1,5 +1,9 @@
 # MiniMax-M3.1-Flash EXL3 (SAGE 2.15 bpw) on ONE NVIDIA DGX Spark
 
+**Model on Hugging Face:** [vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw) (gated: request access on the model page)
+
+> **Work in progress.** This recipe is under active development. The `q4-32k` profile is measured and is what the author serves today; larger contexts, q4 prefill speed and the tool-calling evaluation are still being worked on, and pins/profiles may change. The two-Spark 4.26 bpw path is not validated yet — PRs welcome.
+
 A pinned, fail-closed serving recipe for
 [`vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw`](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw)
 on **one** DGX Spark (GB10, 128 GB unified memory, linux/arm64), with vLLM
@@ -33,6 +37,7 @@ serve anything below either pin.
 | Sparks | folder | engine | profile | status |
 |---|---|---|---|---|
 | 1x DGX Spark (GB10, 128 GB unified) | this repo | vLLM (pinned upstream image) + vllm-exl3 plugin | `q4-32k` (32K context, q4 main KV) | **measured** — see [Measured results](#measured-results) |
+| 2x DGX Spark | — | — | SAGE 4.26 bpw pack ([vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-4.26bpw](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-4.26bpw)) | **not validated yet — help wanted** |
 
 ## Quick start
 
@@ -245,6 +250,7 @@ the table mirrors the HF model README.
 | bpw | size | smallest card | top-1 vs original | mean KLD | p99 KLD | download |
 |---|---|---|---|---|---|---|
 | 2.15 (SAGE) | ~119 GB | DGX Spark (128 GB unified) | — | — | — | [HF](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-2.15bpw) |
+| 4.26 (SAGE) | — | 2x DGX Spark | — | — | — | [HF](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-4.26bpw) |
 
 top-1 = next-token agreement with the original checkpoint on a held-out set;
 KLD = mean and 99th-percentile KL(reference ‖ pack) at those positions. No
@@ -252,6 +258,21 @@ held-out quality evaluation of this pack has been run, so those cells stay
 em dashes rather than invented numbers; the evaluation text was not used
 for calibration. Every number on this page is tied to one card, one pack
 revision and one set of server settings.
+
+## Two Sparks (not validated yet — help wanted)
+
+The SAGE 4.26 bpw pack
+([`vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-4.26bpw`](https://huggingface.co/vcruz305/MiniMax-M3.1-Flash-EXL3-SAGE-4.26bpw),
+public, not gated) is meant for **two** DGX Sparks.
+
+The two-Spark part of this recipe has **not** been validated yet: there is no
+measured boot and no launch config in this repo for it, and nothing above
+(the pins, profiles, measured results, guard behaviour) was obtained on two
+Sparks. Everything else in this repo is the one-Spark 2.15 bpw recipe.
+
+The author is looking for help here and PRs are welcome — two-Spark launch
+configs, fixes, and measured results together with the hardware and logs they
+came from.
 
 ## Known limits
 
